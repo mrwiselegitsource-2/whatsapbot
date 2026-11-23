@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WhatsApp AI</title>
+<style>
+  :root{--bg:#eef1f4;--card:#fff;--ink:#1b2430;--mute:#5d6b7a;--line:#d6dce3;--acc:#1f6f5c;--bad:#b4472f}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:720px;margin:0 auto;padding:16px}
+  h1{font-size:1.35rem;margin:6px 0 14px}
+  h2{font-size:1.05rem;margin:0 0 8px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+  input,textarea{width:100%;font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+  textarea{min-height:92px;resize:vertical}
+  label{display:block;font-size:.88rem;color:var(--mute);margin:10px 0 4px}
+  button{font:inherit;border:0;border-radius:8px;padding:9px 14px;background:var(--acc);color:#fff;cursor:pointer}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+  button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .grow{flex:1;min-width:140px}
+  .pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.85rem;background:#e3e8ee}
+  .pill.ok{background:#d5ecdf;color:#15523f}.pill.warn{background:#f6e0d8;color:var(--bad)}
+  .code{font:700 2rem/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;margin:10px 0}
+  .muted{color:var(--mute);font-size:.9rem}
+  .chat{border-top:1px solid var(--line);padding:10px 0}
+  .chat:first-of-type{border-top:0}
+  .chat summary{display:flex;gap:10px;align-items:center;cursor:pointer;list-style:none}
+  .chat summary::-webkit-details-marker{display:none}
+  .chat .name{flex:1;font-weight:600;overflow-wrap:anywhere}
+  .chat .body{padding:6px 0 4px}
+  .on{color:var(--acc)}
+  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>WhatsApp AI</h1>
+
+  <section id="conn"></section>
+
+  <section>
+    <h2>How it replies (all chats)</h2>
+    <textarea id="base" rows="8"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="saveBase">Save default behavior</button>
+      <span class="muted" id="budget"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Chats</h2>
+    <p class="muted">Turn on only the chats you want the AI to reply in. It starts remembering a chat once you turn it on.</p>
+    <div class="row" style="margin-bottom:6px">
+      <input id="q" class="grow" placeholder="Search chats">
+      <label style="margin:0;display:flex;gap:6px;align-items:center"><input id="onlyOn" type="checkbox" style="width:auto"> Enabled only</label>
+    </div>
+    <div id="chats"></div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+let PASS = localStorage.getItem('pass') || '';
+let STATE = null;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(t){const el=$('#toast');el.textContent=t;el.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.display='none',2200)}
+
+async function api(path, body) {
+  const r = await fetch('/api/' + path, {
+    method: body ? 'POST' : 'GET',
+    headers: { 'x-pass': PASS, 'content-type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401) {
+    const p = prompt('Dashboard password');
+    if (p === null) throw new Error('Password needed');
+    PASS = p; localStorage.setItem('pass', p);
+    return api(path, body);
+  }
+  return r.json();
+}
+
+function renderConn() {
+  const s = STATE.status;
+  const el = $('#conn');
+  const keep = el.querySelector('#phone')?.value || '';
+  const keepCode = el.querySelector('#codeBox')?.innerHTML || '';
+  let html = '<h2>WhatsApp connection</h2>';
+  if (s.state === 'open') {
+    html += `<span class="pill ok">Linked${s.me ? ' · +' + esc(s.me) : ''}</span>
+      <div style="margin-top:10px"><button class="danger" id="logout">Unlink WhatsApp</button></div>`;
+  } else if (s.state === 'needs_pairing') {
+    html += `<span class="pill warn">Not linked</span>
+      <label for="phone">Your WhatsApp number with country code (no + or spaces)</label>
+      <div class="row"><input id="phone" class="grow" inputmode="numeric" placeholder="233XXXXXXXXX" value="${esc(keep)}"><button id="pair">Get pairing code</button></div>
+      <div id="codeBox">${keepCode}</div>
+      <p class="muted">Then on your phone: WhatsApp → Linked devices → Link a device → Link with phone number instead, and type the code.</p>`;
+  } else {
+    html += `<span class="pill">${esc(s.state)}</span>`;
+  }
+  if (s.error) html += `<p class="muted" style="color:var(--bad)">Last error: ${esc(s.error)}</p>`;
+  el.innerHTML = html;
+  $('#logout')?.addEventListener('click', async () => { if (confirm('Unlink this WhatsApp?')) { await api('logout', {}); toast('Unlinked'); } });
+  $('#pair')?.addEventListener('click', async () => {
+    const r = await api('pair', { phone: $('#phone').value });
+    $('#codeBox').innerHTML = r.code
+      ? `<div class="code">${esc(r.code.slice(0,4))}-${esc(r.code.slice(4))}</div>`
+      : `<p style="color:var(--bad)">${esc(r.error)}</p>`;
+  });
+}
+
+function renderChats() {
+  const q = $('#q').value.toLowerCase();
+  const only = $('#onlyOn').checked;
+  const list = STATE.chats.filter((c) => (!only || c.enabled) && (c.name + c.jid).toLowerCase().includes(q)).slice(0, 80);
+  $('#chats').innerHTML = list.length ? list.map((c) => `
+    <details class="chat" data-jid="${esc(c.jid)}"${c.enabled ? ' open' : ''}>
+      <summary>
+        <span class="name">${esc(c.name)} <span class="muted">${c.group ? 'group' : 'chat'}</span></span>
+        <span class="${c.enabled ? 'on' : 'muted'}">${c.enabled ? 'AI on' : 'off'}</span>
+      </summary>
+      <div class="body">
+        <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" class="en" style="width:auto"${c.enabled ? ' checked' : ''}> Reply in this chat</label>
+        <label>How to reply here</label>
+        <textarea class="pr" placeholder="e.g. This is my customer group. Be polite, answer in Pidgin or English like they do, never quote prices.">${esc(c.prompt)}</textarea>
+        <label>Only reply when a message contains (optional)</label>
+        <input class="tr" value="${esc(c.trigger)}" placeholder="e.g. @ai  or  mawuli">
+        <label>Style notes or sample messages (optional)</label>
+        <textarea class="no" placeholder="Paste a few real messages from this chat so it copies the way you talk.">${esc(c.notes)}</textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="save">Save chat</button>
+          <button class="ghost forget">Clear memory</button>
+          <span class="muted">${c.remembered} messages remembered</span>
+        </div>
+      </div>
+    </details>`).join('') : '<p class="muted">No chats yet. Chats show up here once someone messages you or a group is found.</p>';
+}
+
+$('#chats').addEventListener('click', async (e) => {
+  const box = e.target.closest('.chat'); if (!box) return;
+  const jid = box.dataset.jid;
+  if (e.target.classList.contains('save')) {
+    await api('chat', { jid, enabled: box.querySelector('.en').checked, prompt: box.querySelector('.pr').value, trigger: box.querySelector('.tr').value, notes: box.querySelector('.no').value });
+    toast('Saved'); await load(true);
+  }
+  if (e.target.classList.contains('forget') && confirm('Clear what the AI remembers about this chat?')) {
+    await api('chat/forget', { jid }); toast('Memory cleared'); await load(true);
+  }
+});
+$('#q').addEventListener('input', () => STATE && renderChats());
+$('#onlyOn').addEventListener('change', () => STATE && renderChats());
+$('#saveBase').addEventListener('click', async () => { await api('settings', { basePrompt: $('#base').value }); toast('Saved'); });
+
+async function load(withChats) {
+  STATE = await api('state');
+  renderConn();
+  $('#budget').textContent = `${STATE.repliesLastHour}/${STATE.maxPerHour} replies this hour`;
+  if (withChats === true || !$('#chats').children.length) { $('#base').value = STATE.basePrompt; renderChats(); }
+}
+load(true);
+setInterval(() => { if (STATE) load(false).catch(() => {}); }, 6000);
+</script>
+</body>
+</html>

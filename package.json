@@ -1,0 +1,14 @@
+{
+  "name": "wa-ai-bot",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "express": "^4.19.2",
+    "pino": "^9.0.0"
+  }
+}
