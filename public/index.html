@@ -7,32 +7,46 @@
 <style>
   :root{--bg:#eef1f4;--card:#fff;--ink:#1b2430;--mute:#5d6b7a;--line:#d6dce3;--acc:#1f6f5c;--bad:#b4472f}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  main{max-width:720px;margin:0 auto;padding:16px}
-  h1{font-size:1.35rem;margin:6px 0 14px}
-  h2{font-size:1.05rem;margin:0 0 8px}
-  section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
-  input,textarea{width:100%;font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 10px}
-  textarea{min-height:92px;resize:vertical}
-  label{display:block;font-size:.88rem;color:var(--mute);margin:10px 0 4px}
-  button{font:inherit;border:0;border-radius:8px;padding:9px 14px;background:var(--acc);color:#fff;cursor:pointer}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:680px;margin:0 auto;padding:12px}
+  h1{font-size:1.2rem;margin:4px 0 10px}
+  h2{font-size:.98rem;margin:0 0 6px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+  input,textarea{width:100%;font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:.9rem}
+  textarea{min-height:60px;resize:vertical}
+  label{display:block;font-size:.82rem;color:var(--mute);margin:7px 0 3px}
+  button{font:inherit;border:0;border-radius:7px;padding:7px 12px;background:var(--acc);color:#fff;cursor:pointer;font-size:.88rem}
   button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
   button.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
   button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .grow{flex:1;min-width:140px}
-  .pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.85rem;background:#e3e8ee}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .grow{flex:1;min-width:120px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.82rem;background:#e3e8ee}
   .pill.ok{background:#d5ecdf;color:#15523f}.pill.warn{background:#f6e0d8;color:var(--bad)}
-  .code{font:700 2rem/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;margin:10px 0}
-  .muted{color:var(--mute);font-size:.9rem}
-  .chat{border-top:1px solid var(--line);padding:10px 0}
+  .code{font:700 1.8rem/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;margin:8px 0}
+  .muted{color:var(--mute);font-size:.85rem}
+  /* Chat rows — compact accordion */
+  .chat{border-top:1px solid var(--line);padding:0}
   .chat:first-of-type{border-top:0}
-  .chat summary{display:flex;gap:10px;align-items:center;cursor:pointer;list-style:none}
+  .chat summary{
+    display:flex;gap:8px;align-items:center;
+    cursor:pointer;list-style:none;
+    padding:9px 4px;
+    user-select:none;
+  }
   .chat summary::-webkit-details-marker{display:none}
-  .chat .name{flex:1;font-weight:600;overflow-wrap:anywhere}
-  .chat .body{padding:6px 0 4px}
+  .chat summary::before{content:'▶';font-size:.7rem;color:var(--mute);transition:transform .2s;flex-shrink:0}
+  .chat[open] summary::before{transform:rotate(90deg)}
+  .chat .name{flex:1;font-weight:600;overflow-wrap:anywhere;font-size:.93rem}
+  .chat .badge{font-size:.78rem;padding:1px 7px;border-radius:99px;background:#e3e8ee;color:var(--mute)}
+  .chat .badge.on{background:#d5ecdf;color:#15523f}
+  .chat .body{padding:4px 4px 10px;border-top:1px solid var(--line)}
   .on{color:var(--acc)}
-  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;display:none}
+  #base-wrap summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font-size:.93rem;font-weight:600}
+  #base-wrap summary::-webkit-details-marker{display:none}
+  #base-wrap summary::before{content:'▶';font-size:.7rem;color:var(--mute);transition:transform .2s}
+  #base-wrap[open] summary::before{transform:rotate(90deg)}
+  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 15px;border-radius:8px;display:none;font-size:.9rem}
 </style>
 </head>
 <body>
@@ -42,12 +56,15 @@
   <section id="conn"></section>
 
   <section>
-    <h2>How it replies (all chats)</h2>
-    <textarea id="base" rows="8"></textarea>
-    <div class="row" style="margin-top:8px">
-      <button id="saveBase">Save default behavior</button>
-      <span class="muted" id="budget"></span>
-    </div>
+    <details id="base-wrap">
+      <summary>Default reply behavior <span class="muted" id="budget" style="font-weight:400"></span></summary>
+      <div style="margin-top:8px">
+        <textarea id="base" rows="5"></textarea>
+        <div class="row" style="margin-top:7px">
+          <button id="saveBase">Save</button>
+        </div>
+      </div>
+    </details>
   </section>
 
   <section>
@@ -119,26 +136,26 @@ function renderChats() {
   const only = $('#onlyOn').checked;
   const list = STATE.chats.filter((c) => (!only || c.enabled) && (c.name + c.jid).toLowerCase().includes(q)).slice(0, 80);
   $('#chats').innerHTML = list.length ? list.map((c) => `
-    <details class="chat" data-jid="${esc(c.jid)}"${c.enabled ? ' open' : ''}>
+    <details class="chat" data-jid="${esc(c.jid)}">
       <summary>
-        <span class="name">${esc(c.name)} <span class="muted">${c.group ? 'group' : 'chat'}</span></span>
-        <span class="${c.enabled ? 'on' : 'muted'}">${c.enabled ? 'AI on' : 'off'}</span>
+        <span class="name">${esc(c.name)}<span class="muted" style="font-weight:400;font-size:.8rem"> ${c.group ? '· group' : '· chat'}</span></span>
+        <span class="badge${c.enabled ? ' on' : ''}">${c.enabled ? '✓ AI on' : 'off'}</span>
       </summary>
       <div class="body">
-        <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" class="en" style="width:auto"${c.enabled ? ' checked' : ''}> Reply in this chat</label>
-        <label>How to reply here</label>
-        <textarea class="pr" placeholder="e.g. This is my customer group. Be polite, answer in Pidgin or English like they do, never quote prices.">${esc(c.prompt)}</textarea>
-        <label>Only reply when a message contains (optional)</label>
-        <input class="tr" value="${esc(c.trigger)}" placeholder="e.g. @ai  or  mawuli">
-        <label>Style notes or sample messages (optional)</label>
-        <textarea class="no" placeholder="Paste a few real messages from this chat so it copies the way you talk.">${esc(c.notes)}</textarea>
-        <div class="row" style="margin-top:10px">
-          <button class="save">Save chat</button>
+        <label style="display:flex;gap:8px;align-items:center;margin:6px 0 8px"><input type="checkbox" class="en" style="width:auto"${c.enabled ? ' checked' : ''}> <b>Reply in this chat</b></label>
+        <label>How to reply here (optional)</label>
+        <textarea class="pr" rows="2" placeholder="e.g. Be polite, answer in Pidgin or English.">${esc(c.prompt)}</textarea>
+        <label>Trigger word — only reply when message contains (leave blank = reply to all)</label>
+        <input class="tr" value="${esc(c.trigger)}" placeholder="Leave blank to reply to every message">
+        <label>Style notes / sample messages (optional)</label>
+        <textarea class="no" rows="2" placeholder="Paste a few real messages so it copies your style.">${esc(c.notes)}</textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="save">Save</button>
           <button class="ghost forget">Clear memory</button>
-          <span class="muted">${c.remembered} messages remembered</span>
+          <span class="muted">${c.remembered} msgs</span>
         </div>
       </div>
-    </details>`).join('') : '<p class="muted">No chats yet. Chats show up here once someone messages you or a group is found.</p>';
+    </details>`).join('') : '<p class="muted">No chats yet.</p>';
 }
 
 $('#chats').addEventListener('click', async (e) => {
